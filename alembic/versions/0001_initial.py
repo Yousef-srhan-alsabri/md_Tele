@@ -1,0 +1,19 @@
+"""initial schema"""
+from alembic import op
+import sqlalchemy as sa
+revision='0001_initial'; down_revision=None; branch_labels=None; depends_on=None
+
+def upgrade():
+    op.create_table('users',sa.Column('id',sa.Integer(),primary_key=True),sa.Column('username',sa.String(80),nullable=False),sa.Column('password_hash',sa.String(255),nullable=False),sa.Column('is_admin',sa.Boolean(),nullable=False,server_default=sa.false()),sa.Column('is_active',sa.Boolean(),nullable=False,server_default=sa.true()),sa.Column('balance',sa.Integer(),nullable=False,server_default='0'),sa.Column('delay_seconds',sa.Integer(),nullable=False,server_default='10'),sa.Column('rest_minutes',sa.Integer(),nullable=False,server_default='5'),sa.Column('created_at',sa.DateTime(timezone=True),server_default=sa.func.now()),sa.UniqueConstraint('username'))
+    op.create_index('ix_users_username','users',['username'])
+    op.create_table('telegram_accounts',sa.Column('id',sa.Integer(),primary_key=True),sa.Column('user_id',sa.Integer(),sa.ForeignKey('users.id',ondelete='CASCADE'),nullable=False),sa.Column('phone',sa.String(32),nullable=False),sa.Column('encrypted_session',sa.Text(),nullable=False),sa.Column('is_active',sa.Boolean(),nullable=False,server_default=sa.false()),sa.Column('created_at',sa.DateTime(timezone=True),server_default=sa.func.now()),sa.UniqueConstraint('user_id','phone',name='uq_user_phone'))
+    op.create_index('ix_telegram_accounts_user_id','telegram_accounts',['user_id'])
+    op.create_table('links',sa.Column('id',sa.Integer(),primary_key=True),sa.Column('user_id',sa.Integer(),sa.ForeignKey('users.id',ondelete='CASCADE'),nullable=False),sa.Column('value',sa.String(255),nullable=False),sa.Column('status',sa.String(32),nullable=False,server_default='pending'),sa.Column('attempts',sa.Integer(),nullable=False,server_default='0'),sa.Column('last_message',sa.Text()),sa.Column('created_at',sa.DateTime(timezone=True),server_default=sa.func.now()),sa.Column('updated_at',sa.DateTime(timezone=True),server_default=sa.func.now()),sa.UniqueConstraint('user_id','value',name='uq_user_link'))
+    op.create_index('ix_links_user_id','links',['user_id']); op.create_index('ix_links_status','links',['status'])
+    op.create_table('jobs',sa.Column('id',sa.Integer(),primary_key=True),sa.Column('user_id',sa.Integer(),sa.ForeignKey('users.id',ondelete='CASCADE'),nullable=False),sa.Column('account_id',sa.Integer(),sa.ForeignKey('telegram_accounts.id',ondelete='CASCADE'),nullable=False),sa.Column('status',sa.String(32),nullable=False,server_default='queued'),sa.Column('stop_requested',sa.Boolean(),nullable=False,server_default=sa.false()),sa.Column('processed',sa.Integer(),nullable=False,server_default='0'),sa.Column('successful',sa.Integer(),nullable=False,server_default='0'),sa.Column('failed',sa.Integer(),nullable=False,server_default='0'),sa.Column('last_error',sa.Text()),sa.Column('created_at',sa.DateTime(timezone=True),server_default=sa.func.now()),sa.Column('started_at',sa.DateTime(timezone=True)),sa.Column('finished_at',sa.DateTime(timezone=True)))
+    op.create_index('ix_jobs_user_id','jobs',['user_id']); op.create_index('ix_jobs_status','jobs',['status'])
+    op.create_table('balance_transactions',sa.Column('id',sa.Integer(),primary_key=True),sa.Column('user_id',sa.Integer(),sa.ForeignKey('users.id',ondelete='CASCADE'),nullable=False),sa.Column('amount',sa.Integer(),nullable=False),sa.Column('kind',sa.String(40),nullable=False),sa.Column('link_id',sa.Integer(),sa.ForeignKey('links.id',ondelete='SET NULL')),sa.Column('note',sa.Text()),sa.Column('created_at',sa.DateTime(timezone=True),server_default=sa.func.now()))
+    op.create_index('ix_balance_transactions_user_id','balance_transactions',['user_id'])
+
+def downgrade():
+    op.drop_table('balance_transactions'); op.drop_table('jobs'); op.drop_table('links'); op.drop_table('telegram_accounts'); op.drop_table('users')
